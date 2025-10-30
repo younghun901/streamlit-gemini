@@ -1,7 +1,7 @@
 import streamlit as st
 import google.generativeai as genai
 
-APP_VERSION = "v2-no-direct-session-write"  # 화면 좌상단에 떠서 버전 확인용
+APP_VERSION = "v3-stable-rerun"
 
 def main():
     st.title(f"채팅 앱 · {APP_VERSION}")
@@ -13,7 +13,7 @@ def main():
 
     genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
 
-    # 상태 초기화 (user_input 키는 만들지 않습니다!)
+    # 세션 초기화
     if "messages" not in st.session_state:
         st.session_state["messages"] = [
             {"role": "assistant", "content": "안녕하세요! 질문을 입력해 주세요."}
@@ -21,7 +21,7 @@ def main():
     if "input_reset" not in st.session_state:
         st.session_state["input_reset"] = 0  # 입력창 리셋용 카운터
 
-    # 입력창: 리셋 카운터를 키에 반영 (키 변경 = 새 위젯 = 값 초기화)
+    # 입력창: key에 리셋 카운터를 포함
     key_suffix = st.session_state["input_reset"]
     user_input = st.text_input("질문을 입력하세요", key=f"user_input_{key_suffix}")
 
@@ -31,10 +31,10 @@ def main():
     with col2:
         clear = st.button("입력창 초기화")
 
-    # 입력창 초기화 버튼 → 세션의 user_input을 건드리지 않고, 키만 바꿈
+    # 입력창 초기화 버튼
     if clear:
-        st.session_state["input_reset"] += 1   # 새 키로 교체
-        st.experimental_rerun()
+        st.session_state["input_reset"] += 1
+        st.rerun()  # ✅ 최신 Streamlit 버전용
 
     # 전송 처리
     if submit and user_input:
@@ -52,9 +52,8 @@ def main():
             {"role": "assistant", "content": assistant_text}
         )
 
-        # 입력창 비우기: user_input 값을 직접 비우지 않고 키만 새로 만듦
         st.session_state["input_reset"] += 1
-        st.experimental_rerun()
+        st.rerun()  # ✅ 최신 Streamlit 버전용
 
     # 대화 표시
     for msg in st.session_state["messages"]:
