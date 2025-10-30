@@ -1,3 +1,3 @@
 streamlit
-google-generativeal
+google-generativeai
 protobuf
