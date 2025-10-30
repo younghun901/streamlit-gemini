@@ -2,6 +2,9 @@
 import streamlit as st
 import google.generativeai as genai
 
+def clear_input():
+    st.session_state.user_input = ""
+
 def main():
     st.title('채팅 앱')
 
