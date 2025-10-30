@@ -1,75 +1,87 @@
 import streamlit as st
 import google.generativeai as genai
 
-APP_VERSION = "v4-enterkey-support"
-
-def handle_submit():
-    """엔터키로 입력 시 실행되는 콜백"""
-    user_input = st.session_state.get("current_input", "").strip()
-    if not user_input:
-        return
-
-    if "messages" not in st.session_state:
-        st.session_state["messages"] = [
-            {"role": "assistant", "content": "안녕하세요! 질문을 입력해 주세요."}
-        ]
-
-    st.session_state["messages"].append({"role": "user", "content": user_input})
-
+# ---------------------------
+# Gemini 응답 함수
+# ---------------------------
+def generate_answer(prompt: str) -> str:
+    """Gemini API로 답변 생성"""
     try:
         model = genai.GenerativeModel("gemini-2.5-flash")
-        response = model.generate_content(user_input)
-        assistant_text = getattr(response, "text", str(response))
+        response = model.generate_content(prompt)
+        if hasattr(response, "text"):
+            return response.text
+        return str(response)
     except Exception as e:
-        assistant_text = f"오류 발생: {e}"
+        return f"⚠️ 오류 발생: {e}"
 
-    st.session_state["messages"].append({"role": "assistant", "content": assistant_text})
-
-    # 입력창 초기화 및 리렌더
-    st.session_state["current_input"] = ""
-    st.rerun()
-
+# ---------------------------
+# 메인 앱
+# ---------------------------
 def main():
-    st.title(f"채팅 앱 · {APP_VERSION}")
-
-    if "GEMINI_API_KEY" not in st.secrets:
-        st.error("st.secrets에 GEMINI_API_KEY가 없습니다. 키를 설정해 주세요.")
-        return
-
-    genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
-
-    if "messages" not in st.session_state:
-        st.session_state["messages"] = [
-            {"role": "assistant", "content": "안녕하세요! 질문을 입력해 주세요."}
-        ]
-    if "current_input" not in st.session_state:
-        st.session_state["current_input"] = ""
-
-    # ✅ 엔터키로 전송 가능 (on_change 콜백)
-    user_input = st.text_input(
-        "질문을 입력하세요",
-        key="current_input",
-        on_change=handle_submit,
+    st.set_page_config(page_title="Gemini 채팅", layout="centered")
+    st.markdown(
+        f"""
+        <style>
+            .chat-box {{
+                background-color: #f9fafb;
+                border-radius: 10px;
+                padding: 15px;
+                margin: 10px 0;
+            }}
+            .user-msg {{
+                background-color: #d1e7ff;
+                border-radius: 10px;
+                padding: 10px 15px;
+                margin: 5px 0;
+            }}
+            .assistant-msg {{
+                background-color: #e8f5e9;
+                border-radius: 10px;
+                padding: 10px 15px;
+                margin: 5px 0;
+            }}
+        </style>
+        """,
+        unsafe_allow_html=True
     )
 
-    col1, col2 = st.columns([4, 1])
-    with col1:
-        if st.button("전송"):
-            handle_submit()
-    with col2:
-        if st.button("입력창 초기화"):
-            st.session_state["current_input"] = ""
-            st.rerun()
+    st.title("💬 Gemini 채팅 앱")
 
-    # 대화 표시
-    for msg in st.session_state["messages"]:
-        role = msg["role"]
-        try:
-            with st.chat_message(role):
-                st.markdown(msg["content"])
-        except Exception:
-            prefix = "사용자" if role == "user" else "앱"
-            st.markdown(f"**{prefix}:** {msg['content']}")
+    # API 키 확인
+    if "GEMINI_API_KEY" not in st.secrets:
+        st.error("❌ st.secrets에 GEMINI_API_KEY가 없습니다.")
+        return
+    genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
+
+    # 세션 초기화
+    if "messages" not in st.session_state:
+        st.session_state["messages"] = [
+            {"role": "assistant", "content": "안녕하세요! 무엇이 궁금하신가요? 😊"}
+        ]
+
+    # ---------------------------
+    # UI 구성
+    # ---------------------------
+    with st.container():
+        for msg in st.session_state["messages"]:
+            if msg["role"] == "user":
+                st.markdown(f"<div class='user-msg'><b>🧑 사용자:</b><br>{msg['content']}</div>", unsafe_allow_html=True)
+            else:
+                st.markdown(f"<div class='assistant-msg'><b>🤖 Gemini:</b><br>{msg['content']}</div>", unsafe_allow_html=True)
+
+    st.markdown("---")
+
+    # 입력창 (엔터키 + 버튼 지원)
+    prompt = st.chat_input("질문을 입력하고 Enter를 눌러보세요!")
+
+    if prompt:  # 엔터 또는 버튼 입력 시
+        # 사용자 메시지 추가
+        st.session_state["messages"].append({"role": "user", "content": prompt})
+        # 응답 생성
+        answer = generate_answer(prompt)
+        st.session_state["messages"].append({"role": "assistant", "content": answer})
+        # Streamlit은 chat_input 입력 시 자동 rerun → rerun() 불필요
 
 if __name__ == "__main__":
     main()
